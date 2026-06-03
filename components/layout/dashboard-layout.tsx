@@ -105,19 +105,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               </nav>
             </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Acesso seguro"
-                  className="text-sidebar-foreground/65"
-                >
-                  <LockKeyhole className="size-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Acesso seguro</TooltipContent>
-            </Tooltip>
+
           </aside>
 
           {/* ── Content area ── */}
@@ -184,12 +172,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                         )
                       })}
                     </nav>
-                    <div className="absolute bottom-6 left-6 right-6">
-                      <div className="flex items-center gap-3 rounded-md border border-sidebar-border bg-sidebar-accent px-3 py-3 text-sm text-sidebar-accent-foreground">
-                        <LockKeyhole className="size-4" />
-                        Acesso seguro
-                      </div>
-                    </div>
+
                   </SheetContent>
                 </Sheet>
               </div>
