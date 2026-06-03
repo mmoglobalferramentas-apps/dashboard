@@ -1,7 +1,8 @@
 export async function fetchDashboardApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("DASHBOARD_ACCESS_TOKEN") : "";
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
   
-  const res = await fetch(`/api/dashboard${endpoint}`, {
+  const res = await fetch(`${baseUrl}/api/dashboard${endpoint}`, {
     ...options,
     headers: {
       "Authorization": `Bearer ${token}`,

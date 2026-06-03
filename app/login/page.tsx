@@ -1,18 +1,51 @@
+"use client"
+
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, ArrowRight, LockKeyhole } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { ArrowLeft, ArrowRight, LockKeyhole, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { FadeUp } from "@/components/ui/fade-up"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
-export const metadata = {
-  title: "Entrar — XBOARD",
-  description: "Acesse o dashboard XBOARD com email e senha.",
-}
+import { supabaseClient } from "@/lib/supabase-client"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setIsLoading(true)
+    setError("")
+
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+
+    const { data, error: authError } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (authError) {
+      setError("Credenciais invalidas. Tente novamente.")
+      setIsLoading(false)
+      return
+    }
+
+    if (data?.session) {
+      localStorage.setItem("DASHBOARD_ACCESS_TOKEN", data.session.access_token)
+      router.push("/dashboard")
+    } else {
+      setError("Erro ao obter sessao. Contate o administrador.")
+      setIsLoading(false)
+    }
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-foreground [letter-spacing:0]">
       <Image
@@ -29,27 +62,27 @@ export default function LoginPage() {
       <div className="relative z-10 grid min-h-screen lg:grid-cols-[1.14fr_minmax(420px,0.86fr)]">
         <section className="flex min-h-screen flex-col px-5 py-6 sm:px-8 lg:order-2 lg:px-12">
           <FadeUp>
-          <header className="flex items-center justify-between gap-4">
-            <Link href="/" className="flex items-center" aria-label="SGV XBOARD">
-              <span className="relative block h-10 w-40 overflow-hidden">
-                <Image
-                  src="/images/logos/logoWhite.svg"
-                  alt="SGV XBOARD"
-                  fill
-                  priority
-                  className="scale-[3.6] object-contain"
-                  sizes="160px"
-                />
-              </span>
-            </Link>
-
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/" aria-label="Voltar para a pagina inicial">
-                <ArrowLeft className="size-4" />
-                Voltar
+            <header className="flex items-center justify-between gap-4">
+              <Link href="/" className="flex items-center" aria-label="SGV XBOARD">
+                <span className="relative block h-10 w-40 overflow-hidden">
+                  <Image
+                    src="/images/logos/logoWhite.svg"
+                    alt="SGV XBOARD"
+                    fill
+                    priority
+                    className="scale-[3.6] object-contain"
+                    sizes="160px"
+                  />
+                </span>
               </Link>
-            </Button>
-          </header>
+
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/" aria-label="Voltar para a pagina inicial">
+                  <ArrowLeft className="size-4 mr-2" />
+                  Voltar
+                </Link>
+              </Button>
+            </header>
           </FadeUp>
 
           <div className="flex flex-1 items-center justify-center py-10 lg:py-12">
@@ -76,7 +109,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <form className="flex flex-col gap-5" aria-label="Formulario de login">
+              <form className="flex flex-col gap-5" aria-label="Formulario de login" onSubmit={handleSubmit}>
                 <FadeUp delay={0.32} className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -86,6 +119,7 @@ export default function LoginPage() {
                     autoComplete="email"
                     placeholder="voce@empresa.com"
                     required
+                    disabled={isLoading}
                     className="h-12 bg-card"
                   />
                 </FadeUp>
@@ -104,14 +138,21 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     placeholder="Digite sua senha"
                     required
+                    disabled={isLoading}
                     className="h-12 bg-card"
                   />
                 </FadeUp>
 
                 <FadeUp delay={0.48}>
-                  <Button type="submit" size="xl" className="mt-2 w-full">
+                  {error && (
+                    <p className="mb-4 text-sm font-medium text-red-500">
+                      {error}
+                    </p>
+                  )}
+                  <Button type="submit" size="xl" className="w-full" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
                     Entrar no XBOARD
-                    <ArrowRight className="size-4" />
+                    {!isLoading && <ArrowRight className="size-4 ml-2" />}
                   </Button>
                 </FadeUp>
               </form>

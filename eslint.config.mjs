@@ -13,6 +13,13 @@ import { defineConfig, globalIgnores } from "eslint/config"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const compat = new FlatCompat({ baseDirectory: __dirname })
 
+//configuração do diretório. Adicione core-web-vitals, next/typescript, então
+//dimencionaliza abaixo "globalIgnores", dizendo o que o diretório deve ignorar.
+// o meu chute é que é basicamente a configuração do eslint.
+// o eslint é um código que verifica as mas praticas do projeto. 
+// aqui, ele definiu quais são as rotas ue ele vai verificar e quais não.
+// as variáveis responsável. Sendo que ele será responsável por dirname + next/core e next/type
+// ignorando o resto.
 export default defineConfig([
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   globalIgnores([
