@@ -13,3 +13,5 @@ out/
 
 coverage/
 dist/
+
+supabase/.temp/
