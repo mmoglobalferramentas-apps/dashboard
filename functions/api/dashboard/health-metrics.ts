@@ -1,4 +1,8 @@
-import { ApiError, withApiHandler } from "../../../lib/dashboard-api/http"
+import {
+  ApiError,
+  readJsonBody,
+  withApiHandler,
+} from "../../../lib/dashboard-api/http"
 import {
   addEqFilter,
   optionalDimension,
@@ -127,7 +131,7 @@ export const onRequestPut = withApiHandler(
       throw new ApiError(403, "Admin access required.", "forbidden")
     }
 
-    const body = parseHealthMetricBody(await request.json())
+    const body = parseHealthMetricBody(await readJsonBody(request))
     const rows = body.metrics.map((metric) => ({
       market: body.market,
       country: body.country,

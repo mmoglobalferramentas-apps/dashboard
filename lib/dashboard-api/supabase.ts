@@ -107,8 +107,12 @@ export async function supabaseSelect<T>(
 
   if (!response.ok) {
     const message = await parseSupabaseError(response)
-    console.error("supabase_select_failed", { resource, status: response.status })
-    throw new ApiError(502, message, "upstream_error")
+    console.error("supabase_select_failed", {
+      resource,
+      status: response.status,
+      message,
+    })
+    throw new ApiError(502, "Unable to load dashboard data.", "upstream_error")
   }
 
   const contentRange = response.headers.get("content-range")
@@ -144,8 +148,12 @@ export async function supabaseWrite<T>(
 
   if (!response.ok) {
     const message = await parseSupabaseError(response)
-    console.error("supabase_write_failed", { resource, status: response.status })
-    throw new ApiError(502, message, "upstream_error")
+    console.error("supabase_write_failed", {
+      resource,
+      status: response.status,
+      message,
+    })
+    throw new ApiError(502, "Unable to save dashboard data.", "upstream_error")
   }
 
   return (await response.json()) as T[]
@@ -175,8 +183,9 @@ export async function supabaseRpc<T>(
     console.error("supabase_rpc_failed", {
       functionName,
       status: response.status,
+      message,
     })
-    throw new ApiError(502, message, "upstream_error")
+    throw new ApiError(502, "Unable to load dashboard data.", "upstream_error")
   }
 
   return (await response.json()) as T[]

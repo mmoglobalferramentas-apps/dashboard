@@ -1,7 +1,7 @@
 import { ApiError } from "./http"
 
 const DIMENSION_PATTERN = /^[A-Za-z0-9_-]+$/
-const SEARCH_PATTERN = /^[^*,()]+$/
+const SEARCH_PATTERN = /^[^*%,()\\]+$/
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 function queryValue(url: URL, name: string) {

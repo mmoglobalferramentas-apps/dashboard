@@ -62,3 +62,11 @@ export function requireBearerToken(request: Request) {
 
   return token
 }
+
+export async function readJsonBody(request: Request) {
+  try {
+    return await request.json()
+  } catch {
+    throw new ApiError(400, "Invalid JSON body.", "invalid_body")
+  }
+}
