@@ -223,8 +223,8 @@ export default function DashboardPage() {
         </FadeUp>
       </div>
 
-      <section className="grid gap-6 xl:grid-cols-2 xl:[grid-template-areas:'metrics_progress'_'flux_summary']">
-        <section className="grid gap-6 md:grid-cols-2 md:auto-rows-fr xl:[grid-area:metrics]">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px] xl:[grid-template-areas:'metrics_metrics'_'flux_progress'_'summary_progress']">
+        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 xl:[grid-area:metrics]">
           {kpis.map((kpi, index) => (
             <FadeUp
               key={kpi.label}
