@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  outputFileTracingRoot: process.cwd(),
+  output: "export",
   images: {
-    remotePatterns: [],
+    unoptimized: true,
   },
 };
 
