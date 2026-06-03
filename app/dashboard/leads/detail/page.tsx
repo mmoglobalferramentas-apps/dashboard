@@ -150,25 +150,7 @@ function LeadDetailContent() {
     <TooltipProvider>
       <main className="min-h-screen bg-background text-foreground [letter-spacing:0]">
         <section className="min-w-0">
-            <header className="border-b border-border bg-card/70 px-5 py-4 backdrop-blur sm:px-8 lg:hidden">
-              <div className="flex items-center justify-between gap-4">
-                <Link href="/dashboard" className="flex items-center gap-3">
-                  <span className="flex size-10 items-center justify-center rounded-md bg-primary">
-                    <Image
-                      src="/images/logos/iconBlack.svg"
-                      alt=""
-                      width={24}
-                      height={24}
-                      className="size-6 object-contain"
-                    />
-                  </span>
-                  <span className="font-semibold">XBOARD</span>
-                </Link>
-                <Badge variant="outline" className="rounded-md">
-                  Lead Detail
-                </Badge>
-              </div>
-            </header>
+
 
             <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-5 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
