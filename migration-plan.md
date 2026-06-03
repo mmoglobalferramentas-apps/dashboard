@@ -236,9 +236,10 @@ Timeline rows for lead detail:
 - step/page fields
 - attributes/purchase snippets needed by the UI
 
-Optional:
+Parameterized RPCs created for period-wide overview aggregation:
 
-- Add parameterized RPCs later if view filtering from Pages Functions becomes repetitive or hard to secure.
+- `public.dashboard_funnel_kpis(...)`
+- `public.dashboard_funnel_steps(...)`
 
 ### Indexes
 
@@ -259,10 +260,15 @@ Possible later indexes:
 
 ### RLS Policies
 
-Enable RLS on new dashboard-owned tables:
+Enable RLS on dashboard-owned tables:
 
 - `dashboard_profiles`
 - `dashboard_health_metrics`
+
+Also enable RLS and revoke browser-role access on telemetry tables:
+
+- `funnel_events`
+- `funnel_leads`
 
 Telemetry tables are read by Cloudflare Pages Functions with service role. The browser must not query `funnel_events` or `funnel_leads` directly.
 
@@ -271,6 +277,9 @@ Telemetry tables are read by Cloudflare Pages Functions with service role. The b
 Create or reuse:
 
 - `public.set_updated_at()`
+- `public.is_dashboard_admin()`
+- `public.dashboard_funnel_kpis(...)`
+- `public.dashboard_funnel_steps(...)`
 
 Attach `updated_at` triggers to:
 
@@ -307,6 +316,7 @@ Optional:
 
 6. RLS
    - Enable RLS on dashboard-owned tables.
+   - Enable RLS and revoke browser-role access on raw telemetry tables.
    - Add policies for authenticated users/admins.
    - Keep raw telemetry reads server-side through Cloudflare Pages Functions.
 
@@ -327,6 +337,55 @@ Optional:
    - Configure `SUPABASE_URL`.
    - Configure `SUPABASE_SERVICE_ROLE_KEY`.
    - Validate the authenticated dashboard user before querying Supabase with service role.
+
+### Dashboard API Contract
+
+Implemented Pages Functions:
+
+- `GET /api/dashboard/session`
+  - Validates the Supabase Auth bearer token.
+  - Requires a matching `dashboard_profiles` row.
+  - Returns the authenticated user and dashboard role.
+- `GET /api/dashboard/funnels`
+  - Returns real funnel, country, and market filter options.
+- `GET /api/dashboard/overview`
+  - Requires `funnel_id`.
+  - Accepts optional `country`, `market`, `from`, and `to`.
+  - Returns unique-lead KPIs, funnel steps, and matching health metrics.
+- `GET /api/dashboard/leads`
+  - Returns paginated lead rows.
+  - Supports funnel, country, market, lead ID, contact, IC, purchase, and date filters.
+- `GET /api/dashboard/leads/:leadId`
+  - Returns one lead and its event timeline.
+  - Accepts `funnel_id` when the same lead ID exists in more than one funnel.
+- `GET /api/dashboard/health-metrics`
+  - Returns health metrics, optionally filtered by market and country.
+- `PUT /api/dashboard/health-metrics`
+  - Upserts health metrics.
+  - Requires a `dashboard_profiles.role = 'admin'` user.
+
+Date filters use UTC and a semi-open interval:
+
+```text
+from <= event_timestamp < to
+```
+
+The `to` date is exclusive so adjacent date ranges do not overlap.
+
+Overview reads use parameterized RPCs instead of summing daily view rows:
+
+- `public.dashboard_funnel_kpis(...)`
+- `public.dashboard_funnel_steps(...)`
+
+This keeps lead counts unique across the entire selected period and deduplicates purchases by `transaction_id` when both `payment_completed` and `purchase` exist.
+
+Lead contact resolution:
+
+```text
+contact = attributes.email → attributes.phone → lead_id
+```
+
+Until telemetry sends email or phone, the API intentionally displays `lead_id` rather than mock contact data.
 
 ### Cross-Object Dependencies
 
@@ -442,6 +501,7 @@ Rationale:
   - dashboard views
   - RLS on dashboard-owned tables
   - utility trigger/function
+- Apply the intentional access-control change that enables RLS and revokes `anon`/`authenticated` reads on raw telemetry tables.
 - Do not remove or rename existing telemetry columns.
 - Do not change existing event ingestion behavior during the first schema rollout.
 - Keep `country` untouched in `metadata`.
@@ -815,6 +875,7 @@ Safe MVP changes:
 - Create views.
 - Create utility functions/triggers.
 - Enable RLS on new dashboard-owned tables.
+- Enable RLS on telemetry tables while preserving service-role ingestion and backend reads.
 
 Avoid in the first rollout:
 
