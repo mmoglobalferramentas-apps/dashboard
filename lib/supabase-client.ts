@@ -1,10 +1,10 @@
 import { createClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co"
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder"
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.")
+if (supabaseUrl === "https://placeholder.supabase.co") {
+  console.warn("NEXT_PUBLIC_SUPABASE_URL is missing during build. Using placeholder.")
 }
 
-export const supabaseClient = createClient(supabaseUrl || "", supabaseAnonKey || "")
+export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
