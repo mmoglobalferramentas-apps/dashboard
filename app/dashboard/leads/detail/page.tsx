@@ -2,7 +2,8 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 import {
   ArrowLeft,
   ClipboardCopy,
@@ -135,9 +136,9 @@ function getStatusVariant(status: string) {
   return "outline" as const
 }
 
-export default function LeadDetailPage() {
-  const params = useParams<{ leadId: string }>()
-  const leadId = params.leadId
+function LeadDetailContent() {
+  const searchParams = useSearchParams()
+  const leadId = searchParams.get("id") as string
   const lead = mockLeadDetails[leadId as keyof typeof mockLeadDetails]
 
   if (!lead) {
@@ -386,5 +387,13 @@ export default function LeadDetailPage() {
         </section>
       </main>
     </TooltipProvider>
+  )
+}
+
+export default function LeadDetailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background">Carregando...</div>}>
+      <LeadDetailContent />
+    </Suspense>
   )
 }

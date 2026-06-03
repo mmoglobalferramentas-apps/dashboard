@@ -379,7 +379,7 @@ export default function LeadsPage() {
                         <TableCell className="font-medium">
                           <div className="flex min-w-0 flex-col">
                             <Link
-                              href={`/dashboard/leads/${lead.lead_id}`}
+                              href={`/dashboard/leads/detail?id=${lead.lead_id}`}
                               className="truncate transition-colors hover:text-primary"
                             >
                               {lead.contact || "Anônimo"}
@@ -391,7 +391,7 @@ export default function LeadsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Link href={`/dashboard/leads/${lead.lead_id}`}>
+                            <Link href={`/dashboard/leads/detail?id=${lead.lead_id}`}>
                               <code className="text-xs text-muted-foreground transition-colors hover:text-primary" title={lead.lead_id}>
                                 {lead.lead_id.substring(0, 10)}...
                               </code>
