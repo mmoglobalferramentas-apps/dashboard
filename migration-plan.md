@@ -47,6 +47,17 @@ Primary assumption:
 
 - Access control is intentionally simple for MVP: any authenticated invited/admin-created dashboard user can access the dashboard data exposed by the API. Fine-grained per-funnel access is out of scope for now.
 
+## Approved Preflight Decisions
+
+- Development may proceed without an AIOS story for this backend phase by explicit project-owner approval.
+- `dashboard/` is the source repository for the dashboard backend and owns its Supabase migrations.
+- Dashboard API endpoints use Cloudflare Pages Functions.
+- The Supabase backend credential remains `SUPABASE_SERVICE_ROLE_KEY` for this phase.
+- `market` is added to both `public.funnel_events` and `public.funnel_leads`.
+- New funnel telemetry will send `market` directly in a later ingestion update.
+- Until then, the initial mapping is `tdi_latam_01` → `renda_extra`.
+- All migration, smoke-test, and snapshot paths in this document are relative to `/dashboard`.
+
 ## Planning Clarifications
 
 ### Authentication Role
@@ -370,14 +381,14 @@ Example mapping:
 ```sql
 update public.funnel_events
 set market = case
-  when funnel_id = 'tdi_latam_01' then 'direct_response'
+  when funnel_id = 'tdi_latam_01' then 'renda_extra'
   else coalesce(market, 'unknown')
 end
 where market is null;
 
 update public.funnel_leads
 set market = case
-  when funnel_id = 'tdi_latam_01' then 'direct_response'
+  when funnel_id = 'tdi_latam_01' then 'renda_extra'
   else coalesce(market, 'unknown')
 end
 where market is null;
@@ -838,12 +849,13 @@ Rationale:
 Recommended structure:
 
 ```text
-supabase/
-  migrations/
-    <timestamp>_dashboard_backend.sql
-  tests/
-    dashboard_smoke.sql
-  snapshots/
+/dashboard/
+  supabase/
+    migrations/
+      <timestamp>_dashboard_backend.sql
+    tests/
+      dashboard_smoke.sql
+    snapshots/
 ```
 
 Local/dev workflow:
