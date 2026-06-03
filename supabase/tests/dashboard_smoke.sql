@@ -28,6 +28,31 @@ $$;
 
 do $$
 declare
+  missing_functions text[];
+begin
+  select array_agg(function_name order by function_name)
+  into missing_functions
+  from (
+    values
+      (
+        'public.dashboard_funnel_kpis(text,text,text,timestamptz,timestamptz)',
+        to_regprocedure('public.dashboard_funnel_kpis(text,text,text,timestamptz,timestamptz)')
+      ),
+      (
+        'public.dashboard_funnel_steps(text,text,text,timestamptz,timestamptz)',
+        to_regprocedure('public.dashboard_funnel_steps(text,text,text,timestamptz,timestamptz)')
+      )
+  ) as expected(function_name, function_regprocedure)
+  where function_regprocedure is null;
+
+  if missing_functions is not null then
+    raise exception 'Missing dashboard functions: %', array_to_string(missing_functions, ', ');
+  end if;
+end;
+$$;
+
+do $$
+declare
   missing_columns text[];
 begin
   select array_agg(expected.table_name || '.' || expected.column_name order by expected.table_name)
@@ -103,6 +128,26 @@ $$;
 
 do $$
 declare
+  exposed_telemetry_tables text[];
+begin
+  select array_agg(expected.table_name order by expected.table_name)
+  into exposed_telemetry_tables
+  from (
+    values
+      ('funnel_events'),
+      ('funnel_leads')
+  ) as expected(table_name)
+  where has_table_privilege('anon', format('public.%I', expected.table_name), 'SELECT')
+    or has_table_privilege('authenticated', format('public.%I', expected.table_name), 'SELECT');
+
+  if exposed_telemetry_tables is not null then
+    raise exception 'Raw telemetry is exposed to browser roles: %', array_to_string(exposed_telemetry_tables, ', ');
+  end if;
+end;
+$$;
+
+do $$
+declare
   missing_service_role_grants text[];
 begin
   select array_agg(expected.object_name order by expected.object_name)
@@ -133,6 +178,29 @@ $$;
 
 do $$
 declare
+  missing_service_role_function_grants text[];
+begin
+  select array_agg(expected.function_name order by expected.function_name)
+  into missing_service_role_function_grants
+  from (
+    values
+      ('public.dashboard_funnel_kpis(text,text,text,timestamptz,timestamptz)'),
+      ('public.dashboard_funnel_steps(text,text,text,timestamptz,timestamptz)')
+  ) as expected(function_name)
+  where not has_function_privilege(
+    'service_role',
+    expected.function_name,
+    'EXECUTE'
+  );
+
+  if missing_service_role_function_grants is not null then
+    raise exception 'service_role cannot execute: %', array_to_string(missing_service_role_function_grants, ', ');
+  end if;
+end;
+$$;
+
+do $$
+declare
   remaining_unmapped bigint;
 begin
   select
@@ -152,5 +220,7 @@ select * from public.vw_dashboard_funnel_kpis limit 20;
 select * from public.vw_dashboard_funnel_steps limit 20;
 select * from public.vw_dashboard_leads limit 20;
 select * from public.vw_dashboard_lead_events limit 20;
+select * from public.dashboard_funnel_kpis('tdi_latam_01', null, 'renda_extra', null, null);
+select * from public.dashboard_funnel_steps('tdi_latam_01', null, 'renda_extra', null, null);
 
 rollback;
