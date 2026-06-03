@@ -1,11 +1,12 @@
 "use client"
 
 import Image from "next/image"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import {
   ClipboardCopy,
   HeartPulse,
   Save,
+  Loader2,
 } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -36,178 +37,115 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { fetchDashboardApi } from "@/lib/api-client"
 
-const nicheOptions = [
+interface HealthMetricInput {
+  metric_key: string
+  metric_label: string
+  target_value: number
+  unit: string
+  direction?: "gte" | "lte"
+  description?: string
+  recommendations?: unknown[]
+}
+
+interface NicheOption {
+  id: string
+  market: string
+  country: string
+  countryLabel: string
+}
+
+const defaultNicheOptions: NicheOption[] = [
   { id: "direct-response-br", market: "Direct Response", country: "BR", countryLabel: "Brasil" },
   { id: "health-br", market: "Saude", country: "BR", countryLabel: "Brasil" },
   { id: "weight-loss-mx", market: "Emagrecimento", country: "MX", countryLabel: "Mexico" },
 ]
 
-const initialMetrics = {
-  "direct-response-br": [
-    {
-      key: "checkout_ctr",
-      label: "CTR para Checkout (IC)",
-      description: "Percentual de visitantes que clicam no botao de IC / checkout.",
-      value: "8",
-      unit: "%",
-    },
-    {
-      key: "checkout_conversion_rate",
-      label: "Taxa de Conversao do Checkout",
-      description: "Percentual de ICs que resultam em venda confirmada.",
-      value: "25",
-      unit: "%",
-    },
-    {
-      key: "capture_to_quiz_rate",
-      label: "Passagem de Captura para Quiz",
-      description: "Percentual de leads que avancam da captura para o quiz / presell.",
-      value: "70",
-      unit: "%",
-    },
-    {
-      key: "purchase_rate",
-      label: "Passagem de Quiz para VSL",
-      description: "Percentual de leads que avancam do quiz para a pagina de vendas.",
-      value: "40",
-      unit: "%",
-    },
-    {
-      key: "ic_non_conversion_count",
-      label: "Volume minimo de ICs por semana",
-      description: "Numero absoluto de ICs esperado por semana para o funil ativo.",
-      value: "200",
-      unit: "leads",
-    },
-  ],
-  "health-br": [
-    {
-      key: "checkout_ctr",
-      label: "CTR para Checkout (IC)",
-      description: "Percentual de visitantes que clicam no botao de IC / checkout.",
-      value: "7",
-      unit: "%",
-    },
-    {
-      key: "checkout_conversion_rate",
-      label: "Taxa de Conversao do Checkout",
-      description: "Percentual de ICs que resultam em venda confirmada.",
-      value: "22",
-      unit: "%",
-    },
-    {
-      key: "capture_to_quiz_rate",
-      label: "Passagem de Captura para Quiz",
-      description: "Percentual de leads que avancam da captura para o quiz / presell.",
-      value: "65",
-      unit: "%",
-    },
-    {
-      key: "purchase_rate",
-      label: "Passagem de Quiz para VSL",
-      description: "Percentual de leads que avancam do quiz para a pagina de vendas.",
-      value: "36",
-      unit: "%",
-    },
-    {
-      key: "ic_non_conversion_count",
-      label: "Volume minimo de ICs por semana",
-      description: "Numero absoluto de ICs esperado por semana para o funil ativo.",
-      value: "160",
-      unit: "leads",
-    },
-  ],
-  "weight-loss-mx": [
-    {
-      key: "checkout_ctr",
-      label: "CTR para Checkout (IC)",
-      description: "Percentual de visitantes que clicam no botao de IC / checkout.",
-      value: "9",
-      unit: "%",
-    },
-    {
-      key: "checkout_conversion_rate",
-      label: "Taxa de Conversao do Checkout",
-      description: "Percentual de ICs que resultam em venda confirmada.",
-      value: "28",
-      unit: "%",
-    },
-    {
-      key: "capture_to_quiz_rate",
-      label: "Passagem de Captura para Quiz",
-      description: "Percentual de leads que avancam da captura para o quiz / presell.",
-      value: "74",
-      unit: "%",
-    },
-    {
-      key: "purchase_rate",
-      label: "Passagem de Quiz para VSL",
-      description: "Percentual de leads que avancam do quiz para a pagina de vendas.",
-      value: "43",
-      unit: "%",
-    },
-    {
-      key: "ic_non_conversion_count",
-      label: "Volume minimo de ICs por semana",
-      description: "Numero absoluto de ICs esperado por semana para o funil ativo.",
-      value: "240",
-      unit: "leads",
-    },
-  ],
-}
-
-type NicheId = keyof typeof initialMetrics
-type HealthMetrics = typeof initialMetrics
-
 export default function HealthConfigPage() {
-  const [selectedNicheId, setSelectedNicheId] = useState<NicheId>("direct-response-br")
-  const [copySourceId, setCopySourceId] = useState<NicheId>("health-br")
-  const [metricsByNiche, setMetricsByNiche] = useState<HealthMetrics>(initialMetrics)
+  const [selectedNicheId, setSelectedNicheId] = useState<string>("direct-response-br")
+  const [copySourceId, setCopySourceId] = useState<string>("health-br")
+  const [metricsByNiche, setMetricsByNiche] = useState<Record<string, HealthMetricInput[]>>({})
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [lastAction, setLastAction] = useState("Dados mockados para validacao visual.")
+  const [lastAction, setLastAction] = useState("Carregando metas do banco...")
+  
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
   const selectedNiche = useMemo(
-    () => nicheOptions.find((niche) => niche.id === selectedNicheId) ?? nicheOptions[0],
+    () => defaultNicheOptions.find((niche) => niche.id === selectedNicheId) ?? defaultNicheOptions[0],
     [selectedNicheId]
   )
 
-  const marketOptions = Array.from(new Set(nicheOptions.map((niche) => niche.market)))
-  const countryOptions = nicheOptions.filter((niche) => niche.market === selectedNiche.market)
-  const metrics = metricsByNiche[selectedNicheId]
+  const marketOptions = Array.from(new Set(defaultNicheOptions.map((niche) => niche.market)))
+  const countryOptions = defaultNicheOptions.filter((niche) => niche.market === selectedNiche.market)
+  const metrics = metricsByNiche[selectedNicheId] || []
 
-  function selectNiche(nicheId: NicheId) {
+  // Load Initial Metrics
+  useEffect(() => {
+    setIsLoading(true)
+    fetchDashboardApi<(HealthMetricInput & { market: string; country: string })[]>("/health-metrics")
+      .then((res) => {
+        // Group by niche id (market-country)
+        const grouped: Record<string, HealthMetricInput[]> = {}
+        // Initialize default niches with empty arrays
+        defaultNicheOptions.forEach(n => {
+          grouped[n.id] = []
+        })
+
+        res.forEach(metric => {
+          // find matching niche id
+          const matchingNiche = defaultNicheOptions.find(n => n.market === metric.market && n.country === metric.country)
+          const nicheId = matchingNiche ? matchingNiche.id : `${metric.market}-${metric.country}`
+          
+          if (!grouped[nicheId]) grouped[nicheId] = []
+          
+          grouped[nicheId].push({
+            metric_key: metric.metric_key,
+            metric_label: metric.metric_label,
+            target_value: metric.target_value,
+            unit: metric.unit,
+            direction: metric.direction,
+            recommendations: metric.recommendations
+          })
+        })
+
+        setMetricsByNiche(grouped)
+        setLastAction("Dados carregados com sucesso da API.")
+      })
+      .catch((err) => {
+        console.error("Health metrics fetch error", err)
+        setLastAction(`Erro ao carregar dados: ${err.message}`)
+      })
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  function selectNiche(nicheId: string) {
     setSelectedNicheId(nicheId)
     setCopySourceId(
-      (nicheOptions.find((niche) => niche.id !== nicheId)?.id ?? nicheId) as NicheId
+      (defaultNicheOptions.find((niche) => niche.id !== nicheId)?.id ?? nicheId)
     )
     setHasUnsavedChanges(false)
-    setLastAction("Nicho alterado. Os valores exibidos sao mocks temporarios.")
+    setLastAction("Nicho alterado. Valores atualizados.")
   }
 
   function selectMarket(market: string) {
-    const nextNiche = nicheOptions.find((niche) => niche.market === market)
-
-    if (nextNiche) {
-      selectNiche(nextNiche.id as NicheId)
-    }
+    const nextNiche = defaultNicheOptions.find((niche) => niche.market === market)
+    if (nextNiche) selectNiche(nextNiche.id)
   }
 
   function selectCountry(country: string) {
-    const nextNiche = nicheOptions.find(
+    const nextNiche = defaultNicheOptions.find(
       (niche) => niche.market === selectedNiche.market && niche.country === country
     )
-
-    if (nextNiche) {
-      selectNiche(nextNiche.id as NicheId)
-    }
+    if (nextNiche) selectNiche(nextNiche.id)
   }
 
   function updateMetric(metricKey: string, value: string) {
     setMetricsByNiche((current) => ({
       ...current,
-      [selectedNicheId]: current[selectedNicheId].map((metric) =>
-        metric.key === metricKey ? { ...metric, value } : metric
+      [selectedNicheId]: (current[selectedNicheId] || []).map((metric) =>
+        metric.metric_key === metricKey ? { ...metric, target_value: Number(value) } : metric
       ),
     }))
     setHasUnsavedChanges(true)
@@ -215,6 +153,7 @@ export default function HealthConfigPage() {
   }
 
   function copyMetrics() {
+    if (!metricsByNiche[copySourceId]) return
     setMetricsByNiche((current) => ({
       ...current,
       [selectedNicheId]: current[copySourceId].map((metric) => ({ ...metric })),
@@ -224,8 +163,27 @@ export default function HealthConfigPage() {
   }
 
   function saveChanges() {
-    setHasUnsavedChanges(false)
-    setLastAction("Alteracoes mockadas salvas localmente para validacao visual.")
+    setIsSaving(true)
+    setLastAction("Salvando...")
+    
+    fetchDashboardApi("/health-metrics", {
+      method: "PUT",
+      body: JSON.stringify({
+        market: selectedNiche.market,
+        country: selectedNiche.country,
+        metrics: metricsByNiche[selectedNicheId]
+      })
+    })
+      .then(() => {
+        setHasUnsavedChanges(false)
+        setLastAction("Alteracoes salvas com sucesso no Supabase.")
+      })
+      .catch((err) => {
+        setLastAction(`Falha ao salvar: ${err.message}`)
+      })
+      .finally(() => {
+        setIsSaving(false)
+      })
   }
 
   return (
@@ -241,7 +199,7 @@ export default function HealthConfigPage() {
               Health Config
             </Badge>
             <Badge variant="outline" className="w-fit rounded-md">
-              Mock visual temporario
+              Operacao
             </Badge>
             {hasUnsavedChanges ? (
               <Badge variant="secondary" className="w-fit rounded-md">
@@ -249,8 +207,9 @@ export default function HealthConfigPage() {
               </Badge>
             ) : null}
           </div>
-          <h1 className="text-4xl font-bold leading-tight sm:text-5xl">
+          <h1 className="text-4xl font-bold leading-tight sm:text-5xl flex items-center gap-4">
             Metricas de Saude
+            {isLoading && <Loader2 className="size-8 animate-spin text-muted-foreground" />}
           </h1>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
             Configure os benchmarks que orientam os alertas de saude do
@@ -262,9 +221,9 @@ export default function HealthConfigPage() {
           <Button
             className="w-fit"
             onClick={saveChanges}
-            disabled={!hasUnsavedChanges}
+            disabled={!hasUnsavedChanges || isSaving}
           >
-            <Save className="size-4" />
+            {isSaving ? <Loader2 className="size-4 animate-spin mr-2" /> : <Save className="size-4 mr-2" />}
             Salvar alteracoes
           </Button>
         </FadeUp>
@@ -344,13 +303,13 @@ export default function HealthConfigPage() {
               <CardContent className="grid gap-3">
                 <Select
                   value={copySourceId}
-                  onValueChange={(value) => setCopySourceId(value as NicheId)}
+                  onValueChange={(value) => setCopySourceId(value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar nicho de origem" />
                   </SelectTrigger>
                   <SelectContent>
-                    {nicheOptions
+                    {defaultNicheOptions
                       .filter((niche) => niche.id !== selectedNicheId)
                       .map((niche) => (
                         <SelectItem key={niche.id} value={niche.id}>
@@ -360,7 +319,7 @@ export default function HealthConfigPage() {
                   </SelectContent>
                 </Select>
                 <Button variant="outline" className="justify-start" onClick={copyMetrics}>
-                  <ClipboardCopy className="size-4" />
+                  <ClipboardCopy className="size-4 mr-2" />
                   Copiar para este nicho
                 </Button>
               </CardContent>
@@ -376,12 +335,12 @@ export default function HealthConfigPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-2">
-                {nicheOptions.map((niche) => (
+                {defaultNicheOptions.map((niche) => (
                   <Button
                     key={niche.id}
                     variant={niche.id === selectedNicheId ? "default" : "ghost"}
                     className="justify-start"
-                    onClick={() => selectNiche(niche.id as NicheId)}
+                    onClick={() => selectNiche(niche.id)}
                   >
                     {niche.market} · {niche.country}
                   </Button>
@@ -446,14 +405,14 @@ export default function HealthConfigPage() {
                 <TableBody>
                   {metrics.map((metric) => (
                     <TableRow
-                      key={metric.key}
+                      key={metric.metric_key}
                       className="block py-4 hover:bg-transparent md:table-row md:py-0 md:hover:bg-muted/50"
                     >
                       <TableCell className="block px-0 py-0 md:table-cell md:p-4">
                         <div className="flex min-w-0 flex-col gap-1">
-                          <span className="font-semibold">{metric.label}</span>
+                          <span className="font-semibold">{metric.metric_label}</span>
                           <span className="text-sm leading-6 text-muted-foreground">
-                            {metric.description}
+                            {metric.description || metric.metric_key}
                           </span>
                         </div>
                       </TableCell>
@@ -464,11 +423,11 @@ export default function HealthConfigPage() {
                         <Input
                           type="number"
                           min="0"
-                          value={metric.value}
+                          value={metric.target_value}
                           onChange={(event) =>
-                            updateMetric(metric.key, event.target.value)
+                            updateMetric(metric.metric_key, event.target.value)
                           }
-                          aria-label={`Meta minima para ${metric.label}`}
+                          aria-label={`Meta minima para ${metric.metric_label}`}
                         />
                       </TableCell>
                       <TableCell className="mt-3 block px-0 py-0 md:table-cell md:p-4">
@@ -478,7 +437,7 @@ export default function HealthConfigPage() {
                         <Input
                           value={metric.unit}
                           readOnly
-                          aria-label={`Unidade para ${metric.label}`}
+                          aria-label={`Unidade para ${metric.metric_label}`}
                           className="text-muted-foreground"
                         />
                       </TableCell>
@@ -486,14 +445,19 @@ export default function HealthConfigPage() {
                   ))}
                 </TableBody>
               </Table>
+              
+              {metrics.length === 0 && !isLoading && (
+                <div className="text-center py-10 text-muted-foreground text-sm">
+                  Nenhuma métrica configurada ou encontrada.
+                </div>
+              )}
 
               <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm leading-6 text-muted-foreground">
-                  Este prototipo usa mocks locais ate a integracao com
-                  `dashboard_health_metrics`.
+                  A integracao real com `dashboard_health_metrics` esta ativa.
                 </p>
-                <Button onClick={saveChanges} disabled={!hasUnsavedChanges}>
-                  <Save className="size-4" />
+                <Button onClick={saveChanges} disabled={!hasUnsavedChanges || isSaving}>
+                  {isSaving ? <Loader2 className="size-4 animate-spin mr-2" /> : <Save className="size-4 mr-2" />}
                   Salvar alteracoes
                 </Button>
               </div>

@@ -1,14 +1,21 @@
+// Importa resposta de ERRO de api de /http
 import { ApiError } from "./http"
 
+// consts que irão ajudar na resolução de tipagem de dados específicos
+// futuramente
 const DIMENSION_PATTERN = /^[A-Za-z0-9_-]+$/
 const SEARCH_PATTERN = /^[^*%,()\\]+$/
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
+// retorna um valor de um parametro dentro da nossa URL.
+// por exemplo, tem um parametro "chave", com valor "10", aqui, pesquisamos 
+// chave e a função retorna 10. Se o valor da chave estiver null, retorna null
 function queryValue(url: URL, name: string) {
   const value = url.searchParams.get(name)?.trim()
   return value || null
 }
 
+// Verifica se o valor retornado é válido. Se não, informa que a query foi invalida.
 export function optionalDimension(url: URL, name: string, maxLength = 128) {
   const value = queryValue(url, name)
 
@@ -23,6 +30,8 @@ export function optionalDimension(url: URL, name: string, maxLength = 128) {
   return value
 }
 
+// SE não retornar valor, retorna erro. Ou seja, feita para valores que são obrigatórios
+// de existirem.
 export function requiredDimension(url: URL, name: string, maxLength = 128) {
   const value = optionalDimension(url, name, maxLength)
 

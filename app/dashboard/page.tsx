@@ -1,9 +1,14 @@
+"use client"
+
 import Image from "next/image"
+import { useEffect, useState, useMemo } from "react"
 import {
   CalendarDays,
   ChevronRight,
   Gauge,
+  Loader2,
 } from "lucide-react"
+import { type DateRange } from "react-day-picker"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -25,28 +30,110 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { fetchDashboardApi } from "@/lib/api-client"
 
-export const metadata = {
-  title: "Funnel Overview — XBOARD",
-  description: "Visao inicial do funil no dashboard XBOARD.",
+interface FunnelOption {
+  funnel_id: string
+  country: string
+  market: string
 }
 
-const kpis = [
-  { label: "Visitantes", hint: "Entrada total" },
-  { label: "ICs", hint: "Cliques no checkout" },
-  { label: "Vendas", hint: "Compras confirmadas" },
-  { label: "Conv. checkout", hint: "ICs convertidos" },
-]
-
-const funnelSteps = [
-  { label: "Pagina de Captura", badge: null },
-  { label: "Quiz / Presell", badge: null },
-  { label: "Pagina de Vendas", badge: null },
-  { label: "Clique no IC", badge: "IC" },
-  { label: "Venda confirmada", badge: "VENDA" },
-]
+interface OverviewData {
+  filters: Record<string, string | null>
+  kpis: {
+    total_leads: number
+    total_ics: number
+    purchases: number
+    checkout_conversion_rate: number
+    non_converted_ics: number
+  }
+  steps: Array<{
+    step_key: string
+    step_label: string
+    step_index: number | null
+    event_count: number
+    lead_count: number
+    passage_percentage: number
+  }>
+  health_metrics: Record<string, unknown>[]
+}
 
 export default function DashboardPage() {
+  const [funnels, setFunnels] = useState<FunnelOption[]>([])
+  const [selectedFunnel, setSelectedFunnel] = useState<string>("")
+  const [selectedCountry, setSelectedCountry] = useState<string>("")
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>()
+  
+  const [data, setData] = useState<OverviewData | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+
+  // Fetch Funnels options
+  useEffect(() => {
+    fetchDashboardApi<FunnelOption[]>("/funnels")
+      .then((res) => {
+        setFunnels(res)
+        if (res.length > 0) {
+          setSelectedFunnel(res[0].funnel_id)
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load funnels", err)
+        setError(err.message)
+      })
+  }, [])
+
+  // Derived options based on selected funnel
+  const currentFunnelObj = funnels.find(f => f.funnel_id === selectedFunnel)
+  const availableCountries = useMemo(() => {
+    if (!selectedFunnel) return []
+    // Group by country for the selected funnel or just show the country of the selected funnel
+    return Array.from(new Set(funnels.filter(f => f.funnel_id === selectedFunnel).map(f => f.country)))
+  }, [funnels, selectedFunnel])
+
+  useEffect(() => {
+    if (availableCountries.length > 0 && !availableCountries.includes(selectedCountry)) {
+      setSelectedCountry(availableCountries[0])
+    }
+  }, [availableCountries, selectedCountry])
+
+  // Fetch Overview Data
+  useEffect(() => {
+    if (!selectedFunnel) return
+
+    setIsLoading(true)
+    setError("")
+    
+    const params = new URLSearchParams()
+    params.set("funnel_id", selectedFunnel)
+    if (selectedCountry) params.set("country", selectedCountry)
+    if (currentFunnelObj?.market) params.set("market", currentFunnelObj.market)
+    if (selectedDateRange?.from) params.set("from", selectedDateRange.from.toISOString().split("T")[0])
+    if (selectedDateRange?.to) params.set("to", selectedDateRange.to.toISOString().split("T")[0])
+
+    fetchDashboardApi<OverviewData>(`/overview?${params.toString()}`)
+      .then((res) => setData(res))
+      .catch((err) => {
+        console.error("Overview error", err)
+        setError(err.message)
+      })
+      .finally(() => setIsLoading(false))
+  }, [selectedFunnel, selectedCountry, currentFunnelObj, selectedDateRange])
+
+  const kpis = data ? [
+    { label: "Visitantes", value: data.kpis.total_leads, hint: "Entrada total" },
+    { label: "ICs", value: data.kpis.total_ics, hint: "Cliques no checkout" },
+    { label: "Vendas", value: data.kpis.purchases, hint: "Compras confirmadas" },
+    { label: "Conv. checkout", value: `${data.kpis.checkout_conversion_rate}%`, hint: "ICs convertidos" },
+  ] : [
+    { label: "Visitantes", value: "--", hint: "Entrada total" },
+    { label: "ICs", value: "--", hint: "Cliques no checkout" },
+    { label: "Vendas", value: "--", hint: "Compras confirmadas" },
+    { label: "Conv. checkout", value: "--", hint: "ICs convertidos" },
+  ]
+
+  const maxEventCount = data?.steps ? Math.max(...data.steps.map(s => s.event_count), 1) : 1
+
   return (
     <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-8 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_640px] xl:items-end">
@@ -66,6 +153,7 @@ export default function DashboardPage() {
           <h1 className="text-4xl font-bold leading-tight sm:text-5xl">
             Funnel Overview
           </h1>
+          {error && <p className="text-red-500 text-sm">{error}</p>}
         </FadeUp>
 
         <FadeUp offset={-24} delay={0.12}>
@@ -75,14 +163,20 @@ export default function DashboardPage() {
                 <Label className="text-xs uppercase text-muted-foreground">
                   Funil
                 </Label>
-                <Select>
+                <Select value={selectedFunnel} onValueChange={setSelectedFunnel}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar funil" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="empty">
-                      Nenhum funil disponivel
-                    </SelectItem>
+                    {funnels.length === 0 ? (
+                      <SelectItem value="empty" disabled>Nenhum funil disponivel</SelectItem>
+                    ) : (
+                      funnels.map(f => (
+                        <SelectItem key={f.funnel_id} value={f.funnel_id}>
+                          {f.funnel_id}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -91,12 +185,18 @@ export default function DashboardPage() {
                 <Label className="text-xs uppercase text-muted-foreground">
                   Pais
                 </Label>
-                <Select>
+                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
                   <SelectTrigger>
                     <SelectValue placeholder="Pais" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="empty">Sem pais</SelectItem>
+                    {availableCountries.length === 0 ? (
+                      <SelectItem value="empty" disabled>Sem pais</SelectItem>
+                    ) : (
+                      availableCountries.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -105,7 +205,11 @@ export default function DashboardPage() {
                 <Label className="text-xs uppercase text-muted-foreground">
                   Periodo
                 </Label>
-                <DateSelector className="w-full" />
+                <DateSelector 
+                  className="w-full" 
+                  date={selectedDateRange}
+                  onDateChange={setSelectedDateRange} 
+                />
               </div>
             </CardContent>
           </Card>
@@ -127,8 +231,9 @@ export default function DashboardPage() {
                     <CardDescription>{kpi.label}</CardDescription>
                     <ChevronRight className="size-4 text-muted-foreground" />
                   </div>
-                  <CardTitle className="text-4xl font-bold leading-none">
-                    --
+                  <CardTitle className="text-4xl font-bold leading-none flex items-center gap-2">
+                    {kpi.value}
+                    {isLoading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -151,8 +256,9 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <CardTitle className="text-2xl">
+                  <CardTitle className="text-2xl flex items-center gap-2">
                     Fluxo do funil
+                    {isLoading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
                   </CardTitle>
                   <CardDescription>
                     Passagem entre paginas, ICs e vendas.
@@ -164,44 +270,49 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="flex h-full flex-col gap-5">
-              {funnelSteps.map((step, index) => (
-                <div key={step.label} className="grid gap-2">
-                  <div className="grid grid-cols-[32px_minmax(0,1fr)_auto_auto] items-center gap-3 text-sm">
-                    <span className="text-muted-foreground">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="min-w-0 truncate font-semibold">
-                      {step.label}
-                    </span>
-                    {step.badge ? (
-                      <Badge
-                        variant={
-                          step.badge === "VENDA" ? "secondary" : "accent"
-                        }
-                        className="rounded-md"
-                      >
-                        {step.badge}
-                      </Badge>
-                    ) : (
-                      <span />
-                    )}
-                    <span className="font-semibold text-muted-foreground">
-                      --
-                    </span>
-                  </div>
-                  <Progress value={0} className="h-2 bg-muted" />
-                  <p className="pl-11 text-xs text-muted-foreground">
-                    Sem registros no periodo selecionado.
-                  </p>
-                </div>
-              ))}
+              {!data?.steps || data.steps.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-4">Sem registros no periodo selecionado.</div>
+              ) : (
+                data.steps.map((step, index) => {
+                  const pct = Math.round((step.event_count / maxEventCount) * 100)
+                  return (
+                    <div key={step.step_key} className="grid gap-2">
+                      <div className="grid grid-cols-[32px_minmax(0,1fr)_auto_auto] items-center gap-3 text-sm">
+                        <span className="text-muted-foreground">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="min-w-0 truncate font-semibold">
+                          {step.step_label}
+                        </span>
+                        {step.step_key === "checkout" ? (
+                          <Badge variant="accent" className="rounded-md">IC</Badge>
+                        ) : step.step_key === "venda" ? (
+                          <Badge variant="secondary" className="rounded-md">VENDA</Badge>
+                        ) : (
+                          <span />
+                        )}
+                        <span className="font-semibold text-muted-foreground">
+                          {step.event_count}
+                        </span>
+                      </div>
+                      <Progress value={pct} className="h-2 bg-muted" />
+                      <p className="pl-11 text-xs text-muted-foreground">
+                        {step.passage_percentage}% de passagem
+                      </p>
+                    </div>
+                  )
+                })
+              )}
 
               <Alert className="mt-auto border-primary/50 bg-accent text-accent-foreground">
                 <Gauge className="size-4" />
                 <AlertTitle>Saude do funil</AlertTitle>
                 <AlertDescription>
-                  Selecione um funil para revisar gargalos e pontos de
-                  atencao.
+                  {data?.health_metrics?.length ? (
+                    `${data.health_metrics.length} metricas configuradas.`
+                  ) : (
+                    "Selecione um funil para revisar gargalos e pontos de atencao."
+                  )}
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -251,26 +362,25 @@ export default function DashboardPage() {
             <CardContent className="grid gap-4 text-sm">
               <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
                 <span className="text-muted-foreground">Funil</span>
-                <span className="font-semibold">--</span>
+                <span className="font-semibold">{selectedFunnel || "--"}</span>
               </div>
               <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
                 <span className="text-muted-foreground">Pais</span>
-                <span className="font-semibold">--</span>
+                <span className="font-semibold">{selectedCountry || "--"}</span>
               </div>
               <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
                 <span className="text-muted-foreground">Periodo</span>
-                <span className="font-semibold">--</span>
+                <span className="font-semibold">
+                  {selectedDateRange?.from ? selectedDateRange.from.toLocaleDateString() : "--"} 
+                  {selectedDateRange?.to ? ` a ${selectedDateRange.to.toLocaleDateString()}` : ""}
+                </span>
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
-                <Badge variant="outline" className="rounded-md">
-                  Captura
-                </Badge>
-                <Badge variant="outline" className="rounded-md">
-                  Presell
-                </Badge>
-                <Badge variant="outline" className="rounded-md">
-                  Checkout
-                </Badge>
+                {data?.steps?.slice(0, 3).map(s => (
+                  <Badge key={s.step_key} variant="outline" className="rounded-md">
+                    {s.step_label}
+                  </Badge>
+                ))}
               </div>
             </CardContent>
           </Card>
