@@ -29,8 +29,26 @@ import {
 import { cn } from "@/components/ui/utils"
 import { fetchDashboardApi } from "@/lib/api-client"
 
+interface LeadDetailRow {
+  lead_id: string
+  funnel_id: string
+  contact: string | null
+  country: string | null
+  market: string | null
+  first_seen_at: string
+  last_seen_at: string | null
+  has_ic: boolean
+  has_purchase: boolean
+  attributes: Record<string, unknown> | null
+}
 
-
+interface LeadEventRow {
+  event_id: string
+  event_type: string
+  event_timestamp: string
+  step_name: string | null
+  page_title: string | null
+}
 function getStatusVariant(status: string) {
   if (status === "Compra realizada") {
     return "secondary" as const
@@ -47,7 +65,7 @@ function LeadDetailContent() {
   const searchParams = useSearchParams()
   const leadId = searchParams.get("id") as string
   
-  const [data, setData] = useState<{ lead: any, events: any[] } | null>(null)
+  const [data, setData] = useState<{ lead: LeadDetailRow, events: LeadEventRow[] } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -58,7 +76,7 @@ function LeadDetailContent() {
     }
     
     setIsLoading(true)
-    fetchDashboardApi<{ lead: any, events: any[] }>(`/leads/${leadId}`)
+    fetchDashboardApi<{ lead: LeadDetailRow, events: LeadEventRow[] }>(`/leads/${leadId}`)
       .then(res => setData(res))
       .catch(err => setError(err.message))
       .finally(() => setIsLoading(false))
@@ -77,8 +95,8 @@ function LeadDetailContent() {
       contact: lead.contact || "Anônimo",
       initials: (lead.contact || "AN").substring(0, 2).toUpperCase(),
       funnel: lead.funnel_id,
-      source: lead.attributes?.utm_source || "Orgânico",
-      campaign: lead.attributes?.utm_campaign || "--",
+      source: (lead.attributes?.utm_source as string) || "Orgânico",
+      campaign: (lead.attributes?.utm_campaign as string) || "--",
       country: lead.country || "--",
       market: lead.market || "--",
       firstSeen: new Date(lead.first_seen_at).toLocaleString(),

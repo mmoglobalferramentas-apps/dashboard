@@ -18,7 +18,7 @@ export async function fetchDashboardApi<T>(endpoint: string, options: RequestIni
     try {
       const errorData = await res.json();
       if (errorData.error) message = errorData.error;
-    } catch (e) {
+    } catch {
       // Ignore JSON parse error if response is not JSON
     }
     

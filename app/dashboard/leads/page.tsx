@@ -46,7 +46,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { cn } from "@/components/ui/utils"
 import { fetchDashboardApi } from "@/lib/api-client"
 
 interface FunnelOption {
