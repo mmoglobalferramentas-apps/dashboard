@@ -150,3 +150,34 @@ export async function supabaseWrite<T>(
 
   return (await response.json()) as T[]
 }
+
+export async function supabaseRpc<T>(
+  env: DashboardEnv,
+  functionName: string,
+  body: Record<string, unknown>
+): Promise<T[]> {
+  requireEnv(env)
+
+  const headers = serviceRoleHeaders(env)
+  headers.set("Content-Type", "application/json")
+
+  const response = await fetch(
+    supabaseUrl(env, `/rest/v1/rpc/${functionName}`),
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    }
+  )
+
+  if (!response.ok) {
+    const message = await parseSupabaseError(response)
+    console.error("supabase_rpc_failed", {
+      functionName,
+      status: response.status,
+    })
+    throw new ApiError(502, message, "upstream_error")
+  }
+
+  return (await response.json()) as T[]
+}
