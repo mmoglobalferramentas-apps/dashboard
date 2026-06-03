@@ -48,8 +48,8 @@ async function parseSupabaseError(response: Response) {
 }
 
 export async function requireDashboardUser(request: Request, env: DashboardEnv) {
-  requireEnv(env)
   const token = requireBearerToken(request)
+  requireEnv(env)
 
   const authResponse = await fetch(supabaseUrl(env, "/auth/v1/user"), {
     headers: {
