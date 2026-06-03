@@ -97,6 +97,10 @@ export default function DashboardPage() {
     }
   }, [availableCountries, selectedCountry])
 
+  const uniqueFunnelIds = useMemo(() => {
+    return Array.from(new Set(funnels.map(f => f.funnel_id)))
+  }, [funnels])
+
   // Fetch Overview Data
   useEffect(() => {
     if (!selectedFunnel) return
@@ -171,9 +175,9 @@ export default function DashboardPage() {
                     {funnels.length === 0 ? (
                       <SelectItem value="empty" disabled>Nenhum funil disponivel</SelectItem>
                     ) : (
-                      funnels.map(f => (
-                        <SelectItem key={f.funnel_id} value={f.funnel_id}>
-                          {f.funnel_id}
+                      uniqueFunnelIds.map(id => (
+                        <SelectItem key={id} value={id}>
+                          {id}
                         </SelectItem>
                       ))
                     )}
