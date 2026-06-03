@@ -84,7 +84,7 @@ const conditionalFilters: Array<{
 export default function LeadsPage() {
   const [funnels, setFunnels] = useState<FunnelOption[]>([])
   const [selectedFunnel, setSelectedFunnel] = useState<string>("")
-  const [selectedCountry, setSelectedCountry] = useState<string>("")
+  const [selectedCountry, setSelectedCountry] = useState<string>("all")
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>()
   
   const [activeFilters, setActiveFilters] = useState<Record<ConditionalFilter, boolean>>({
@@ -120,9 +120,13 @@ export default function LeadsPage() {
     return Array.from(new Set(funnels.filter(f => f.funnel_id === selectedFunnel).map(f => f.country)))
   }, [funnels, selectedFunnel])
 
+  const uniqueFunnelIds = useMemo(() => {
+    return Array.from(new Set(funnels.map(f => f.funnel_id)))
+  }, [funnels])
+
   useEffect(() => {
-    if (availableCountries.length > 0 && !availableCountries.includes(selectedCountry)) {
-      setSelectedCountry(availableCountries[0])
+    if (availableCountries.length > 0 && !availableCountries.includes(selectedCountry) && selectedCountry !== "all") {
+      setSelectedCountry("all")
     }
   }, [availableCountries, selectedCountry])
 
@@ -134,7 +138,7 @@ export default function LeadsPage() {
     
     const params = new URLSearchParams()
     params.set("funnel_id", selectedFunnel)
-    if (selectedCountry) params.set("country", selectedCountry)
+    if (selectedCountry && selectedCountry !== "all") params.set("country", selectedCountry)
     if (currentFunnelObj?.market) params.set("market", currentFunnelObj.market)
     if (selectedDateRange?.from) params.set("from", selectedDateRange.from.toISOString().split("T")[0])
     if (selectedDateRange?.to) params.set("to", selectedDateRange.to.toISOString().split("T")[0])
@@ -209,12 +213,12 @@ export default function LeadsPage() {
                     <SelectValue placeholder="Selecionar funil" />
                   </SelectTrigger>
                   <SelectContent>
-                    {funnels.length === 0 ? (
+                    {uniqueFunnelIds.length === 0 ? (
                       <SelectItem value="empty" disabled>Nenhum funil disponivel</SelectItem>
                     ) : (
-                      funnels.map(f => (
-                        <SelectItem key={f.funnel_id} value={f.funnel_id}>
-                          {f.funnel_id}
+                      uniqueFunnelIds.map(fid => (
+                        <SelectItem key={fid} value={fid}>
+                          {fid}
                         </SelectItem>
                       ))
                     )}
@@ -234,9 +238,12 @@ export default function LeadsPage() {
                     {availableCountries.length === 0 ? (
                       <SelectItem value="empty" disabled>Sem pais</SelectItem>
                     ) : (
-                      availableCountries.map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))
+                      <>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {availableCountries.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </>
                     )}
                   </SelectContent>
                 </Select>

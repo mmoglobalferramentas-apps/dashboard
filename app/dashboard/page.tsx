@@ -61,7 +61,7 @@ interface OverviewData {
 export default function DashboardPage() {
   const [funnels, setFunnels] = useState<FunnelOption[]>([])
   const [selectedFunnel, setSelectedFunnel] = useState<string>("")
-  const [selectedCountry, setSelectedCountry] = useState<string>("")
+  const [selectedCountry, setSelectedCountry] = useState<string>("all")
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>()
   
   const [data, setData] = useState<OverviewData | null>(null)
@@ -92,8 +92,8 @@ export default function DashboardPage() {
   }, [funnels, selectedFunnel])
 
   useEffect(() => {
-    if (availableCountries.length > 0 && !availableCountries.includes(selectedCountry)) {
-      setSelectedCountry(availableCountries[0])
+    if (availableCountries.length > 0 && selectedCountry !== "all" && !availableCountries.includes(selectedCountry)) {
+      setSelectedCountry("all")
     }
   }, [availableCountries, selectedCountry])
 
@@ -110,7 +110,7 @@ export default function DashboardPage() {
     
     const params = new URLSearchParams()
     params.set("funnel_id", selectedFunnel)
-    if (selectedCountry) params.set("country", selectedCountry)
+    if (selectedCountry && selectedCountry !== "all") params.set("country", selectedCountry)
     if (currentFunnelObj?.market) params.set("market", currentFunnelObj.market)
     if (selectedDateRange?.from) params.set("from", selectedDateRange.from.toISOString().split("T")[0])
     if (selectedDateRange?.to) params.set("to", selectedDateRange.to.toISOString().split("T")[0])
@@ -197,9 +197,12 @@ export default function DashboardPage() {
                     {availableCountries.length === 0 ? (
                       <SelectItem value="empty" disabled>Sem pais</SelectItem>
                     ) : (
-                      availableCountries.map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))
+                      <>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {availableCountries.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </>
                     )}
                   </SelectContent>
                 </Select>
@@ -370,7 +373,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
                 <span className="text-muted-foreground">Pais</span>
-                <span className="font-semibold">{selectedCountry || "--"}</span>
+                <span className="font-semibold">{selectedCountry === "all" ? "Todos" : selectedCountry || "--"}</span>
               </div>
               <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
                 <span className="text-muted-foreground">Periodo</span>

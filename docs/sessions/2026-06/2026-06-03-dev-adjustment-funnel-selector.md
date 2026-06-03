@@ -15,3 +15,19 @@
 ## Status
 - **Finalizado:** Sim
 - **Rollback Existente:** Sim (descrito no Planning Output)
+
+# Handoff: Lead Detail API Integration
+**Agent:** @dev
+
+## Resumo das Tarefas
+- **Ajuste:** Integração da página de detalhes do Lead (`/dashboard/app/dashboard/leads/detail/page.tsx`).
+- **Problema:** A página de detalhes não estava encontrando leads ao clicar na tabela principal pois a URL usa um `lead_id` real (UUID) puxado da base de dados, mas o componente detalhe tentava extrair de um dicionário local `mockLeadDetails` com dados hardcoded.
+- **Solução:** O mock foi integralmente removido. No lugar, foram adicionados os hooks de estado (`useState`, `useEffect`) para bater no endpoint `/api/dashboard/leads/[leadId]` através da função client-side `fetchDashboardApi`. O payload retornado com `lead` e sua respectiva timeline de `events` foi mapeado para a UI, adaptando todos os campos dinamicamente e resolvendo o erro de compatibilidade de ID.
+- **Risco:** 🟡 MEDIUM
+- **Gates Passados:** Remoção completa de mocks. Garantia de fallback com erro caso o UUID seja inválido ou 404 (Not Found).
+
+## Arquivos Modificados
+- `dashboard/app/dashboard/leads/detail/page.tsx`
+
+## Status
+- **Finalizado:** Sim

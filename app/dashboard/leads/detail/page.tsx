@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Suspense } from "react"
+import { Suspense, useEffect, useState, useMemo } from "react"
 import {
   ArrowLeft,
   ClipboardCopy,
@@ -27,102 +27,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/components/ui/utils"
+import { fetchDashboardApi } from "@/lib/api-client"
 
-const mockLeadDetails = {
-  ld_00291: {
-    contact: "brunog@email.com",
-    initials: "BG",
-    funnel: "funnel_brasil_v2",
-    source: "facebook",
-    campaign: "camp_maio_retarg",
-    country: "BR",
-    market: "Direct Response",
-    firstSeen: "31/05/2026 13:48",
-    lastSeen: "31/05/2026 14:22",
-    statuses: ["IC realizado", "Compra realizada"],
-    events: [
-      { label: "Pagina de Captura", type: "page_view", time: "13:48:02" },
-      { label: "Formulario enviado", type: "lead_capture", time: "13:49:16" },
-      { label: "Quiz / Presell", type: "page_view", time: "13:52:44" },
-      { label: "Pagina de Vendas", type: "page_view", time: "14:04:10" },
-      { label: "Clique no IC", type: "checkout_click", time: "14:18:37" },
-      { label: "Venda confirmada", type: "purchase", time: "14:22:08" },
-    ],
-  },
-  ld_00290: {
-    contact: "ana.lima@outlook.com",
-    initials: "AL",
-    funnel: "funnel_brasil_v2",
-    source: "instagram",
-    campaign: "camp_maio_prospeccao",
-    country: "BR",
-    market: "Direct Response",
-    firstSeen: "31/05/2026 13:21",
-    lastSeen: "31/05/2026 13:55",
-    statuses: ["IC realizado", "Sem compra"],
-    events: [
-      { label: "Pagina de Captura", type: "page_view", time: "13:21:04" },
-      { label: "Formulario enviado", type: "lead_capture", time: "13:22:31" },
-      { label: "Quiz / Presell", type: "page_view", time: "13:27:18" },
-      { label: "Pagina de Vendas", type: "page_view", time: "13:42:55" },
-      { label: "Clique no IC", type: "checkout_click", time: "13:55:12" },
-    ],
-  },
-  ld_00284: {
-    contact: "mariana.v@gmail.com",
-    initials: "MV",
-    funnel: "funnel_brasil_v2",
-    source: "facebook",
-    campaign: "camp_maio_retarg",
-    country: "BR",
-    market: "Direct Response",
-    firstSeen: "31/05/2026 09:31",
-    lastSeen: "31/05/2026 09:44",
-    statuses: ["IC realizado", "Sem compra"],
-    events: [
-      { label: "Pagina de Captura", type: "page_view", time: "09:31:12" },
-      { label: "Formulario enviado", type: "lead_capture", time: "09:32:40" },
-      { label: "Quiz / Presell", type: "page_view", time: "09:36:09" },
-      { label: "Pagina de Vendas", type: "page_view", time: "09:41:28" },
-      { label: "Clique no IC", type: "checkout_click", time: "09:44:12" },
-    ],
-  },
-  ld_00277: {
-    contact: "rafael.costa@gmail.com",
-    initials: "RC",
-    funnel: "funnel_mexico_v1",
-    source: "google",
-    campaign: "camp_mx_search",
-    country: "MX",
-    market: "Direct Response",
-    firstSeen: "30/05/2026 18:12",
-    lastSeen: "30/05/2026 18:12",
-    statuses: ["Captura", "Sem IC"],
-    events: [
-      { label: "Pagina de Captura", type: "page_view", time: "18:12:03" },
-      { label: "Formulario enviado", type: "lead_capture", time: "18:12:49" },
-    ],
-  },
-  ld_00263: {
-    contact: "lucas.moreira@proton.me",
-    initials: "LM",
-    funnel: "funnel_health_br_v1",
-    source: "facebook",
-    campaign: "camp_health_maio",
-    country: "BR",
-    market: "Health",
-    firstSeen: "30/05/2026 09:42",
-    lastSeen: "30/05/2026 10:08",
-    statuses: ["Checkout", "Sem compra"],
-    events: [
-      { label: "Pagina de Captura", type: "page_view", time: "09:42:15" },
-      { label: "Formulario enviado", type: "lead_capture", time: "09:43:08" },
-      { label: "Quiz / Presell", type: "page_view", time: "09:51:22" },
-      { label: "Pagina de Vendas", type: "page_view", time: "10:02:47" },
-      { label: "Checkout iniciado", type: "checkout_start", time: "10:08:33" },
-    ],
-  },
-} as const
+
 
 function getStatusVariant(status: string) {
   if (status === "Compra realizada") {
@@ -139,7 +46,59 @@ function getStatusVariant(status: string) {
 function LeadDetailContent() {
   const searchParams = useSearchParams()
   const leadId = searchParams.get("id") as string
-  const lead = mockLeadDetails[leadId as keyof typeof mockLeadDetails]
+  
+  const [data, setData] = useState<{ lead: any, events: any[] } | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    if (!leadId) {
+      setIsLoading(false)
+      return
+    }
+    
+    setIsLoading(true)
+    fetchDashboardApi<{ lead: any, events: any[] }>(`/leads/${leadId}`)
+      .then(res => setData(res))
+      .catch(err => setError(err.message))
+      .finally(() => setIsLoading(false))
+  }, [leadId])
+
+  const lead = useMemo(() => {
+    if (!data?.lead) return null;
+    const { lead, events } = data;
+
+    const statuses = ["Captura"]
+    if (lead.has_ic) statuses.push("IC realizado")
+    if (lead.has_purchase) statuses.push("Compra realizada")
+    else if (lead.has_ic) statuses.push("Sem compra")
+
+    return {
+      contact: lead.contact || "Anônimo",
+      initials: (lead.contact || "AN").substring(0, 2).toUpperCase(),
+      funnel: lead.funnel_id,
+      source: lead.attributes?.utm_source || "Orgânico",
+      campaign: lead.attributes?.utm_campaign || "--",
+      country: lead.country || "--",
+      market: lead.market || "--",
+      firstSeen: new Date(lead.first_seen_at).toLocaleString(),
+      lastSeen: new Date(lead.last_seen_at || lead.first_seen_at).toLocaleString(),
+      statuses,
+      events: (events || []).map(e => ({
+        label: e.step_name || e.page_title || e.event_type,
+        type: e.event_type,
+        time: new Date(e.event_timestamp).toLocaleTimeString()
+      }))
+    }
+  }, [data])
+
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-5 text-foreground">
+        <p className="text-muted-foreground animate-pulse">Carregando detalhes do lead...</p>
+      </main>
+    )
+  }
 
   if (!lead) {
     return (
@@ -152,7 +111,7 @@ function LeadDetailContent() {
               </Badge>
               <CardTitle className="text-3xl">Lead nao encontrado</CardTitle>
               <CardDescription>
-                Nao existe um mock de detalhe para o identificador solicitado.
+                {error ? error : "O lead solicitado nao foi encontrado na base."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -205,7 +164,7 @@ function LeadDetailContent() {
                       Lead Detail
                     </Badge>
                     <Badge variant="outline" className="w-fit rounded-md">
-                      Mock visual temporario
+                      Dados em tempo real
                     </Badge>
                   </div>
                   <h1 className="text-4xl font-bold leading-tight sm:text-5xl">
