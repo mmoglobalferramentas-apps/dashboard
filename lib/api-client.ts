@@ -1,5 +1,11 @@
+import { supabaseClient } from "./supabase-client";
+
 export async function fetchDashboardApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("DASHBOARD_ACCESS_TOKEN") : "";
+  let token = "";
+  if (typeof window !== "undefined") {
+    const { data } = await supabaseClient.auth.getSession();
+    token = data.session?.access_token || "";
+  }
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
   
   const res = await fetch(`${baseUrl}/api/dashboard${endpoint}`, {
@@ -12,7 +18,10 @@ export async function fetchDashboardApi<T>(endpoint: string, options: RequestIni
   });
 
   if (!res.ok) {
-    if (res.status === 401) throw new Error("Unauthorized");
+    if (res.status === 401) {
+      if (typeof window !== "undefined") window.location.href = "/login";
+      throw new Error("Unauthorized");
+    }
     
     let message = "API Error";
     try {

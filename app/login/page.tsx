@@ -38,7 +38,6 @@ export default function LoginPage() {
     }
 
     if (data?.session) {
-      localStorage.setItem("DASHBOARD_ACCESS_TOKEN", data.session.access_token)
       router.push("/dashboard")
     } else {
       setError("Erro ao obter sessao. Contate o administrador.")

@@ -18,7 +18,6 @@ import {
   Table2,
   UserRound,
 } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -90,7 +89,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                           className={cn(
                             "size-11",
                             !active &&
-                              "text-sidebar-foreground/65 hover:text-sidebar-foreground"
+                            "text-sidebar-foreground/65 hover:text-sidebar-foreground"
                           )}
                         >
                           <Link href={item.href}>
